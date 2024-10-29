@@ -1316,12 +1316,19 @@ class VLANGroup(PrimaryModel):
     """
 
     name = models.CharField(max_length=CHARFIELD_MAX_LENGTH, db_index=True, unique=True)
-    location = models.ForeignKey(
-        to="dcim.Location",
-        on_delete=models.PROTECT,
-        related_name="vlan_groups",
-        blank=True,
+    scope_content_type = models.ForeignKey(
+        to=ContentType,
+        on_delete=models.CASCADE,
+        limit_choices_to=FeatureQuery("vlan_group_scopes"),
+        default=None,
         null=True,
+        blank=True,
+        related_name="vlan_groups",
+    )
+    scope_object_id = models.UUIDField(default=None, null=True, blank=True)
+    scope = GenericForeignKey(
+        ct_field="scope_content_type",
+        fk_field="scope_object_id",
     )
     description = models.CharField(max_length=CHARFIELD_MAX_LENGTH, blank=True)
 
@@ -1376,6 +1383,8 @@ class VLANGroup(PrimaryModel):
             )
 
     def __str__(self):
+        if self.scope:
+            return f"[{self.scope}] {self.name}"
         return self.name
 
     def get_next_available_vid(self):
