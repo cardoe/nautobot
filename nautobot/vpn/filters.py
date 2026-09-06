@@ -10,6 +10,7 @@ from nautobot.apps.filters import (
     StatusModelFilterSetMixin,
     TenancyModelFilterSetMixin,
 )
+from nautobot.dcim.filters import LocatableModelFilterSetMixin
 from nautobot.dcim.models import Device, Interface
 from nautobot.ipam.models import IPAddress, VLAN
 from nautobot.virtualization.models import VMInterface
@@ -140,6 +141,23 @@ class VPNProfilePhase2PolicyAssignmentFilterSet(BaseFilterSet):
         fields = "__all__"
 
 
+class VNIGroupFilterSet(LocatableModelFilterSetMixin, NautobotFilterSet):  # pylint: disable=too-many-ancestors
+    """Filter for VNIGroup."""
+
+    q = SearchFilter(
+        filter_predicates={
+            "name": "icontains",
+            "description": "icontains",
+        }
+    )
+
+    class Meta:
+        """Meta attributes for filter."""
+
+        model = models.VNIGroup
+        fields = ["id", "name", "description", "range", "tags"]
+
+
 class VPNFilterSet(RoleModelFilterSetMixin, StatusModelFilterSetMixin, TenancyModelFilterSetMixin, NautobotFilterSet):  # pylint: disable=too-many-ancestors
     """Filter for VPN."""
 
@@ -159,6 +177,11 @@ class VPNFilterSet(RoleModelFilterSetMixin, StatusModelFilterSetMixin, TenancyMo
     vpn_profile = NaturalKeyOrPKMultipleChoiceFilter(
         queryset=models.VPNProfile.objects.all(),
         label="VPN Profile (name or ID)",
+        to_field_name="name",
+    )
+    vni_group = NaturalKeyOrPKMultipleChoiceFilter(
+        queryset=models.VNIGroup.objects.all(),
+        label="VNI Group (name or ID)",
         to_field_name="name",
     )
 

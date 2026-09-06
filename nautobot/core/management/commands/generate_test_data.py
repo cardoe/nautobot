@@ -143,6 +143,7 @@ class Command(BaseCommand):
             from nautobot.tenancy.factory import TenantFactory, TenantGroupFactory
             from nautobot.users.factory import UserFactory
             from nautobot.vpn.factory import (
+                VNIGroupFactory,
                 VPNFactory,
                 VPNPhase1PolicyFactory,
                 VPNPhase2PolicyFactory,
@@ -385,6 +386,7 @@ class Command(BaseCommand):
         _create_batch(VPNPhase1PolicyFactory, 20)
         _create_batch(VPNPhase2PolicyFactory, 20)
         _create_batch(VPNProfileFactory, 30)
+        _create_batch(VNIGroupFactory, 10)
         _create_batch(VPNFactory, 10)
         _create_batch(VPNTerminationFactory, 9)
         _create_batch(VPNTunnelEndpointFactory, 20)

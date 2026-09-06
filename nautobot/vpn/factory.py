@@ -11,7 +11,7 @@ from nautobot.core.factory import (
     UniqueFaker,
 )
 from nautobot.dcim.choices import InterfaceTypeChoices
-from nautobot.dcim.models import Interface
+from nautobot.dcim.models import Interface, Location
 from nautobot.extras.models import DynamicGroup, Role, SecretsGroup, Status
 from nautobot.ipam.models import Prefix, VLAN
 from nautobot.tenancy.models import Tenant
@@ -217,6 +217,25 @@ class VPNProfilePhase1PolicyAssignmentFactory(BaseModelFactory):
 class VPNProfilePhase2PolicyAssignmentFactory(BaseModelFactory):
     class Meta:
         model = models.VPNProfilePhase2PolicyAssignment
+
+
+class VNIGroupFactory(PrimaryModelFactory):
+    class Meta:
+        model = models.VNIGroup
+        exclude = ("has_description", "has_location")
+
+    class Params:
+        unique_name = UniqueFaker("word", part_of_speech="noun")
+
+    name = factory.LazyAttribute(lambda o: o.unique_name.upper())
+    has_description = NautobotBoolIterator()
+    description = factory.Maybe("has_description", factory.Faker("sentence"), "")
+    has_location = NautobotBoolIterator()
+    location = factory.Maybe(
+        "has_location",
+        random_instance(lambda: Location.objects.get_for_model(models.VNIGroup), allow_null=False),
+        None,
+    )
 
 
 class VPNFactory(PrimaryModelFactory):

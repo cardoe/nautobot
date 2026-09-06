@@ -92,6 +92,17 @@ class VPNPhase2PolicyFilterTestCase(FilterTestCases.FilterTestCase):
         )
 
 
+class VNIGroupFilterTestCase(FilterTestCases.FilterTestCase):
+    """VNIGroupFilterSet Test Case."""
+
+    queryset = models.VNIGroup.objects.all()
+    filterset = filters.VNIGroupFilterSet
+    generic_filter_tests = (
+        ("name",),
+        ("description",),
+    )
+
+
 class VPNFilterTestCase(FilterTestCases.FilterTestCase):
     """VPNFilterSet Test Case."""
 
@@ -100,6 +111,8 @@ class VPNFilterTestCase(FilterTestCases.FilterTestCase):
     generic_filter_tests = (
         ("vpn_profile", "vpn_profile__id"),
         ("vpn_profile", "vpn_profile__name"),
+        ("vni_group", "vni_group__id"),
+        ("vni_group", "vni_group__name"),
         ("name",),
         ("description",),
         ("vpn_id",),
@@ -113,17 +126,21 @@ class VPNFilterTestCase(FilterTestCases.FilterTestCase):
         active = Status.objects.get(name="Active")
         active.content_types.add(vpn_ct)
         if not models.VPN.objects.filter(name="VPN Filter VXLAN").exists():
+            vni_group_1 = models.VNIGroup.objects.create(name="VPN Filter VNI Group 1")
+            vni_group_2 = models.VNIGroup.objects.create(name="VPN Filter VNI Group 2")
             models.VPN.objects.create(
                 name="VPN Filter VXLAN",
                 service_type=choices.VPNServiceTypeChoices.TYPE_VXLAN,
                 status=active,
                 vpn_id="18001",
+                vni_group=vni_group_1,
             )
             models.VPN.objects.create(
                 name="VPN Filter VPLS",
                 service_type=choices.VPNServiceTypeChoices.TYPE_VPLS,
                 status=active,
                 vpn_id="18002",
+                vni_group=vni_group_2,
             )
 
 

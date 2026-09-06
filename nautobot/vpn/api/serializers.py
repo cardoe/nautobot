@@ -85,6 +85,18 @@ class VPNProfilePhase2PolicyAssignmentSerializer(NautobotModelSerializer):
         fields = "__all__"
 
 
+class VNIGroupSerializer(TaggedModelSerializerMixin, NautobotModelSerializer):  # pylint: disable=too-many-ancestors
+    """VNIGroup Serializer."""
+
+    vpn_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        """Meta attributes."""
+
+        model = models.VNIGroup
+        fields = "__all__"
+
+
 class VPNSerializer(TaggedModelSerializerMixin, NautobotModelSerializer):  # pylint: disable=too-many-ancestors
     """VPN Serializer."""
 

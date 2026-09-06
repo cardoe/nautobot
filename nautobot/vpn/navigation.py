@@ -26,9 +26,21 @@ menu_items = (
                         ),
                     ),
                     NavMenuItem(
+                        link="vpn:vnigroup_list",
+                        name="VNI Groups",
+                        weight=150,
+                        permissions=["vpn.view_vnigroup"],
+                        buttons=(
+                            NavMenuAddButton(
+                                link="vpn:vnigroup_add",
+                                permissions=["vpn.add_vnigroup"],
+                            ),
+                        ),
+                    ),
+                    NavMenuItem(
                         link="vpn:vpntunnel_list",
                         name="VPN Tunnels",
-                        weight=100,
+                        weight=200,
                         permissions=["vpn.view_vpntunnel"],
                         buttons=(
                             NavMenuAddButton(

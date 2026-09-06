@@ -2,12 +2,13 @@
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.db.models import ProtectedError
 from django.test import TestCase
 
 from nautobot.apps.testing import ModelTestCases
 from nautobot.dcim.choices import InterfaceTypeChoices
 from nautobot.dcim.factory import DeviceFactory
-from nautobot.dcim.models import Device, Interface, Module
+from nautobot.dcim.models import Device, Interface, Location, LocationType, Module
 from nautobot.extras.models import Status
 from nautobot.ipam.models import IPAddress, VLAN, VLANGroup
 from nautobot.tenancy.factory import TenantFactory
@@ -125,10 +126,117 @@ class VPNProfilePhase2PolicyAssignmentModel(ModelTestCases.BaseModelTestCase):
     model = models.VPNProfilePhase2PolicyAssignment
 
 
+class TestVNIGroupModel(ModelTestCases.BaseModelTestCase):
+    """Test VNIGroup model."""
+
+    model = models.VNIGroup
+
+
 class TestVPNModel(ModelTestCases.BaseModelTestCase):
     """Test VPN model."""
 
     model = models.VPN
+
+
+class VNIGroupBehaviorTestCase(TestCase):
+    """Behavioral tests for VNIGroup and VPN VNI-range restriction."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.status = Status.objects.get(name="Active")
+        cls.status.content_types.add(ContentType.objects.get_for_model(models.VPN))
+
+        location_status = Status.objects.get_for_model(Location).first()
+        cls.location_type = LocationType.objects.create(name="VNI Group Location Type")
+        cls.location_type.content_types.add(ContentType.objects.get_for_model(models.VNIGroup))
+        cls.location = Location.objects.create(
+            name="VNI Group Location", location_type=cls.location_type, status=location_status
+        )
+        cls.location_type_without_vni = LocationType.objects.create(name="VNI Group Disallowed Location Type")
+        cls.location_without_vni = Location.objects.create(
+            name="VNI Group Disallowed Location", location_type=cls.location_type_without_vni, status=location_status
+        )
+
+    def _make_vpn(self, name, vpn_id, vni_group=None, service_type=""):
+        return models.VPN(
+            name=name,
+            service_type=service_type,
+            status=self.status,
+            vpn_id=vpn_id,
+            vni_group=vni_group,
+        )
+
+    def test_expanded_range(self):
+        group = models.VNIGroup.objects.create(name="Expanded Range Group", range="100-102,200")
+        self.assertEqual(group.expanded_range, [100, 101, 102, 200])
+
+    def test_available_vnis_excludes_used(self):
+        group = models.VNIGroup.objects.create(name="Available Group", range="100-102")
+        self._make_vpn("Available Member", "100", vni_group=group).validated_save()
+        self.assertEqual(group.available_vnis, [101, 102])
+        self.assertEqual(group.get_next_available_vni(), 101)
+
+    def test_get_next_available_vni_exhausted(self):
+        group = models.VNIGroup.objects.create(name="Exhausted Group", range="100")
+        self._make_vpn("Exhausted Member", "100", vni_group=group).validated_save()
+        self.assertIsNone(group.get_next_available_vni())
+
+    def test_clean_location_valid(self):
+        group = models.VNIGroup(name="Valid Location Group", location=self.location)
+        group.full_clean()
+
+    def test_clean_location_invalid_type(self):
+        group = models.VNIGroup(name="Invalid Location Group", location=self.location_without_vni)
+        with self.assertRaises(ValidationError) as context:
+            group.full_clean()
+        self.assertIn("location", context.exception.message_dict)
+
+    def test_clean_resize_would_orphan_member(self):
+        group = models.VNIGroup.objects.create(name="Resize Group", range="100-110")
+        self._make_vpn("Resize Member", "105", vni_group=group).validated_save()
+        group.range = "100-104"
+        with self.assertRaises(ValidationError) as context:
+            group.full_clean()
+        self.assertIn("range", context.exception.message_dict)
+
+    def test_vpn_requires_vpn_id_when_group_assigned(self):
+        group = models.VNIGroup.objects.create(name="Requires ID Group", range="100-200")
+        vpn = self._make_vpn("Requires ID VPN", "", vni_group=group)
+        with self.assertRaises(ValidationError) as context:
+            vpn.full_clean()
+        self.assertIn("vpn_id", context.exception.message_dict)
+
+    def test_vpn_vni_out_of_range_rejected(self):
+        group = models.VNIGroup.objects.create(name="Out Of Range Group", range="100-200")
+        vpn = self._make_vpn("Out Of Range VPN", "500", vni_group=group)
+        with self.assertRaises(ValidationError) as context:
+            vpn.full_clean()
+        self.assertIn("vpn_id", context.exception.message_dict)
+
+    def test_vpn_vni_non_numeric_rejected(self):
+        group = models.VNIGroup.objects.create(name="Non Numeric Group", range="100-200")
+        vpn = self._make_vpn("Non Numeric VPN", "not-a-number", vni_group=group)
+        with self.assertRaises(ValidationError) as context:
+            vpn.full_clean()
+        self.assertIn("vpn_id", context.exception.message_dict)
+
+    def test_vpn_vni_in_range_ok(self):
+        group = models.VNIGroup.objects.create(name="In Range Group", range="100-200")
+        vpn = self._make_vpn("In Range VPN", "150", vni_group=group)
+        vpn.full_clean()
+
+    def test_vpn_vni_unique_within_group(self):
+        group = models.VNIGroup.objects.create(name="Unique Group", range="100-200")
+        self._make_vpn("Unique Member 1", "150", vni_group=group).validated_save()
+        duplicate = self._make_vpn("Unique Member 2", "150", vni_group=group)
+        with self.assertRaises(ValidationError):
+            duplicate.validated_save()
+
+    def test_vpn_group_protects_against_delete(self):
+        group = models.VNIGroup.objects.create(name="Protected Group", range="100-200")
+        self._make_vpn("Protecting Member", "150", vni_group=group).validated_save()
+        with self.assertRaises(ProtectedError):
+            group.delete()
 
 
 class TestVPNTunnelModel(ModelTestCases.BaseModelTestCase):

@@ -324,6 +324,7 @@ plugins:
         "models/wireless/radioprofile.md": "user-guide/core-data-model/wireless/radioprofile.md"
         "models/wireless/wirelessnetwork.md": "user-guide/core-data-model/wireless/wirelessnetwork.md"
         "models/vpn/vpn.md": "user-guide/core-data-model/vpn/vpn.md"
+        "models/vpn/vnigroup.md": "user-guide/core-data-model/vpn/vnigroup.md"
         "models/vpn/vpnphase1policy.md": "user-guide/core-data-model/vpn/vpnphase1policy.md"
         "models/vpn/vpnphase2policy.md": "user-guide/core-data-model/vpn/vpnphase2policy.md"
         "models/vpn/vpnprofile.md": "user-guide/core-data-model/vpn/vpnprofile.md"
@@ -552,6 +553,7 @@ nav:
           - VPN:
               - "user-guide/core-data-model/vpn/index.md"
               - VPN: "user-guide/core-data-model/vpn/vpn.md"
+              - VNI Group: "user-guide/core-data-model/vpn/vnigroup.md"
               - VPN Termination: "user-guide/core-data-model/vpn/vpntermination.md"
               - VPN Tunnel: "user-guide/core-data-model/vpn/vpntunnel.md"
               - VPN Tunnel Endpoint: "user-guide/core-data-model/vpn/vpntunnelendpoint.md"

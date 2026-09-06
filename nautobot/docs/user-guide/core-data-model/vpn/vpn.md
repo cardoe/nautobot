@@ -51,3 +51,8 @@ The following validation rules apply to VPNs:
 
 - VXLAN-based service types (`vxlan`, `vxlan-evpn`) require the VPN identifier to be a numeric VNI (VXLAN Network Identifier) in the range 1 to 16,777,214.
 - Point-to-point service types (`vpws`, `evpn-vpws`, `epl`, `evpl`) limit [VPN Terminations](vpntermination.md) to a maximum of two per VPN.
+- When a [VNI Group](vnigroup.md) is assigned, the VPN identifier is required, must be a numeric VNI contained within the group's permitted range, and must be unique within the group.
+
+## VNI Group
+
+A VPN may optionally be assigned to a [VNI Group](vnigroup.md) to restrict its VNI to a permitted range. Because a VNI Group may itself be scoped to a single Location, this is the mechanism for constraining which VNIs are valid at a given Location, analogous to how [VLAN Groups](../ipam/vlangroup.md) constrain VLAN IDs.

@@ -210,6 +210,28 @@ class VPNPhase2PolicyAPITest(APIViewTestCases.APIViewTestCase):
         }
 
 
+class VNIGroupAPITest(APIViewTestCases.APIViewTestCase):
+    """VNIGroup API tests."""
+
+    model = models.VNIGroup
+    choices_fields = ()
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+
+        cls.create_data = [
+            {"name": "VNI Group API test 1", "range": "100-200"},
+            {"name": "VNI Group API test 2", "range": "300-400,500"},
+            {"name": "VNI Group API test 3", "description": "test value"},
+        ]
+        cls.update_data = {
+            "name": "VNI Group API updated",
+            "description": "updated value",
+            "range": "1000-2000",
+        }
+
+
 class VPNAPITest(APIViewTestCases.APIViewTestCase):
     """VPN API tests."""
 

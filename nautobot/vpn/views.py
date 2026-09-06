@@ -8,6 +8,7 @@ from rest_framework.response import Response
 
 from nautobot.apps.ui import ObjectDetailContent, ObjectFieldsPanel, ObjectsTablePanel, SectionChoices
 from nautobot.apps.views import NautobotUIViewSet
+from nautobot.core.models.querysets import count_related
 from nautobot.core.templatetags import helpers
 from nautobot.core.ui import object_detail
 from nautobot.extras.tables import DynamicGroupTable
@@ -286,6 +287,37 @@ class VPNPhase2PolicyUIViewSet(NautobotUIViewSet):
     )
 
 
+class VNIGroupUIViewSet(NautobotUIViewSet):
+    """ViewSet for VNIGroup."""
+
+    bulk_update_form_class = forms.VNIGroupBulkEditForm
+    filterset_class = filters.VNIGroupFilterSet
+    filterset_form_class = forms.VNIGroupFilterForm
+    form_class = forms.VNIGroupForm
+    lookup_field = "pk"
+    queryset = models.VNIGroup.objects.annotate(vpn_count=count_related(models.VPN, "vni_group"))
+    serializer_class = serializers.VNIGroupSerializer
+    table_class = tables.VNIGroupTable
+
+    object_detail_content = ObjectDetailContent(
+        panels=[
+            ObjectFieldsPanel(
+                weight=100,
+                section=SectionChoices.LEFT_HALF,
+                fields=["name", "location", "range", "description"],
+            ),
+            ObjectsTablePanel(
+                weight=100,
+                table_class=tables.VPNTable,
+                table_filter="vni_group",
+                section=SectionChoices.RIGHT_HALF,
+                table_title="VPNs",
+                exclude_columns=["vni_group"],
+            ),
+        ],
+    )
+
+
 class VPNUIViewSet(NautobotUIViewSet):
     """ViewSet for VPN."""
 
@@ -303,7 +335,7 @@ class VPNUIViewSet(NautobotUIViewSet):
             ObjectFieldsPanel(
                 weight=100,
                 section=SectionChoices.LEFT_HALF,
-                fields=["name", "description", "vpn_profile", "role", "tenant"],
+                fields=["name", "description", "vpn_profile", "vni_group", "role", "tenant"],
             ),
             ObjectFieldsPanel(
                 weight=150,

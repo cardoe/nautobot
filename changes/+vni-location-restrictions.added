@@ -1,0 +1,1 @@
+Added `VNIGroup` model and a `vni_group` field on `VPN`, allowing valid VNIs to be restricted per Location, analogous to VLAN Groups.

@@ -1,5 +1,5 @@
 from nautobot.core.apps import HomePageItem, HomePagePanel
-from nautobot.vpn.models import VPN, VPNTunnel, VPNTunnelEndpoint
+from nautobot.vpn.models import VNIGroup, VPN, VPNTunnel, VPNTunnelEndpoint
 
 layout = (
     HomePagePanel(
@@ -13,6 +13,14 @@ layout = (
                 description="VPNs",
                 permissions=["vpn.view_vpn"],
                 weight=100,
+            ),
+            HomePageItem(
+                name="VNI Groups",
+                link="vpn:vnigroup_list",
+                model=VNIGroup,
+                description="VNI Groups",
+                permissions=["vpn.view_vnigroup"],
+                weight=150,
             ),
             HomePageItem(
                 name="VPN Tunnels",

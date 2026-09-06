@@ -10,6 +10,9 @@ from nautobot.apps.forms import (
     DynamicModelChoiceField,
     DynamicModelMultipleChoiceField,
     JSONArrayFormField,
+    LocatableModelBulkEditFormMixin,
+    LocatableModelFilterFormMixin,
+    LocatableModelFormMixin,
     NautobotBulkEditForm,
     NautobotFilterForm,
     NautobotModelForm,
@@ -396,6 +399,55 @@ class VPNPhase2PolicyFilterForm(NautobotFilterForm, TenancyFilterForm):  # pylin
     ]
 
 
+class VNIGroupForm(LocatableModelFormMixin, NautobotModelForm):  # pylint: disable=too-many-ancestors
+    """Form for creating and updating VNIGroup."""
+
+    range = forms.CharField(
+        required=False,
+        label="VNI range",
+        help_text=(
+            "Permitted VNI range(s) as a comma-separated list, "
+            f"default '{choices.VPNServiceTypeChoices.VXLAN_VNI_MIN}-{choices.VPNServiceTypeChoices.VXLAN_VNI_MAX}' "
+            "if left blank."
+        ),
+    )
+
+    class Meta:
+        """Meta attributes."""
+
+        model = models.VNIGroup
+        fields = [
+            "location",
+            "name",
+            "range",
+            "description",
+            "tags",
+        ]
+
+
+class VNIGroupBulkEditForm(LocatableModelBulkEditFormMixin, TagsBulkEditFormMixin, NautobotBulkEditForm):  # pylint: disable=too-many-ancestors
+    """VNIGroup bulk edit form."""
+
+    pk = forms.ModelMultipleChoiceField(queryset=models.VNIGroup.objects.all(), widget=forms.MultipleHiddenInput)
+    description = forms.CharField(required=False, label="Description")
+    range = forms.CharField(required=False, label="VNI range")
+
+    class Meta:
+        """Meta attributes."""
+
+        model = models.VNIGroup
+        nullable_fields = ["location", "description"]
+
+
+class VNIGroupFilterForm(NautobotFilterForm, LocatableModelFilterFormMixin):  # pylint: disable=too-many-ancestors
+    """Filter form for VNIGroup."""
+
+    model = models.VNIGroup
+
+    q = forms.CharField(required=False, label="Search")
+    tags = TagFilterField(model)
+
+
 class VPNForm(NautobotModelForm, TenancyForm):  # pylint: disable=too-many-ancestors
     """Form for creating and updating VPN."""
 
@@ -403,6 +455,12 @@ class VPNForm(NautobotModelForm, TenancyForm):  # pylint: disable=too-many-ances
         queryset=models.VPNProfile.objects.all(),
         required=False,
         label="VPN Profile",
+    )
+    vni_group = DynamicModelChoiceField(
+        queryset=models.VNIGroup.objects.all(),
+        required=False,
+        label="VNI Group",
+        help_text="Restrict this VPN's VNI to the group's permitted range.",
     )
     service_type = forms.ChoiceField(
         required=False,
@@ -436,6 +494,11 @@ class VPNBulkEditForm(
         required=False,
         label="VPN Profile",
     )
+    vni_group = DynamicModelChoiceField(
+        queryset=models.VNIGroup.objects.all(),
+        required=False,
+        label="VNI Group",
+    )
     tenant = DynamicModelChoiceField(
         queryset=Tenant.objects.all(),
         required=False,
@@ -456,6 +519,7 @@ class VPNBulkEditForm(
         nullable_fields = [
             "description",
             "vpn_profile",
+            "vni_group",
             "vpn_id",
             "service_type",
             "status",
@@ -473,6 +537,11 @@ class VPNFilterForm(NautobotFilterForm, RoleModelFilterFormMixin, TenancyFilterF
         queryset=models.VPNProfile.objects.all(),
         label="VPN Profile",
     )
+    vni_group = DynamicModelMultipleChoiceField(
+        required=False,
+        queryset=models.VNIGroup.objects.all(),
+        label="VNI Group",
+    )
     service_type = forms.MultipleChoiceField(
         choices=choices.VPNServiceTypeChoices,
         required=False,
@@ -483,6 +552,7 @@ class VPNFilterForm(NautobotFilterForm, RoleModelFilterFormMixin, TenancyFilterF
 
     field_order = [
         "vpn_profile",
+        "vni_group",
         "service_type",
         "role",
         "vpn_id",

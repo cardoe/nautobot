@@ -1,6 +1,7 @@
 """API views for the vpn models."""
 
 from nautobot.apps.api import ModelViewSet, NautobotModelViewSet
+from nautobot.core.models.querysets import count_related
 
 from .. import filters, models
 from ..api import serializers
@@ -44,6 +45,14 @@ class VPNProfilePhase2PolicyAssignmentViewSet(ModelViewSet):  # pylint: disable=
     queryset = models.VPNProfilePhase2PolicyAssignment.objects.all()
     serializer_class = serializers.VPNProfilePhase2PolicyAssignmentSerializer
     filterset_class = filters.VPNProfilePhase2PolicyAssignmentFilterSet
+
+
+class VNIGroupViewSet(NautobotModelViewSet):  # pylint: disable=too-many-ancestors
+    """VNIGroup viewset."""
+
+    queryset = models.VNIGroup.objects.annotate(vpn_count=count_related(models.VPN, "vni_group"))
+    serializer_class = serializers.VNIGroupSerializer
+    filterset_class = filters.VNIGroupFilterSet
 
 
 class VPNViewSet(NautobotModelViewSet):  # pylint: disable=too-many-ancestors

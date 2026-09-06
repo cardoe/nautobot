@@ -229,6 +229,29 @@ class VPNProfilePhase2PolicyAssignmentTable(BaseTable):
         )
 
 
+class VNIGroupTable(BaseTable):
+    # pylint: disable=too-few-public-methods
+    """Table for VNIGroup list view."""
+
+    pk = ToggleColumn()
+    name = tables.Column(linkify=True)
+    location = tables.Column(linkify=True)
+    vpn_count = LinkedCountColumn(
+        viewname="vpn:vpn_list",
+        url_params={"vni_group": "name"},
+        verbose_name="VPNs",
+    )
+    actions = ButtonsColumn(models.VNIGroup)
+    tags = TagColumn(url_name="vpn:vnigroup_list")
+
+    class Meta(BaseTable.Meta):
+        """Meta attributes."""
+
+        model = models.VNIGroup
+        fields = ("pk", "name", "location", "range", "vpn_count", "description", "actions")
+        default_columns = ("pk", "name", "range", "location", "vpn_count", "description", "actions")
+
+
 class VPNTable(StatusTableMixin, RoleTableMixin, BaseTable):
     # pylint: disable=too-few-public-methods
     """Table for VPN list view."""
@@ -246,6 +269,7 @@ class VPNTable(StatusTableMixin, RoleTableMixin, BaseTable):
         url_params={"vpn": "pk"},
     )
     vpn_profile = tables.Column(linkify=True)
+    vni_group = tables.Column(linkify=True)
     tenant = TenantColumn()
     actions = ButtonsColumn(models.VPN)
     tags = TagColumn(url_name="vpn:vpn_list")
@@ -261,6 +285,7 @@ class VPNTable(StatusTableMixin, RoleTableMixin, BaseTable):
             "tunnel_count",
             "termination_count",
             "vpn_profile",
+            "vni_group",
             "vpn_id",
             "service_type",
             "status",

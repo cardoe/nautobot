@@ -1,8 +1,11 @@
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from nautobot.apps.constants import CHARFIELD_MAX_LENGTH
 from nautobot.apps.models import BaseModel, extras_features, JSONArrayField, PrimaryModel, StatusField
+from nautobot.core.forms.utils import parse_numeric_range
+from nautobot.core.models.fields import PositiveRangeNumberTextField
 from nautobot.extras.models import RoleField
 from nautobot.vpn import choices
 
@@ -259,6 +262,121 @@ class VPNProfilePhase2PolicyAssignment(BaseModel):
     "custom_validators",
     "export_templates",
     "graphql",
+    "locations",
+    "webhooks",
+)
+class VNIGroup(PrimaryModel):  # pylint: disable=too-many-ancestors
+    """A VNI group defines the range of VXLAN Network Identifiers permitted for its member VPNs.
+
+    A group may be scoped to a single Location, restricting which VNIs are valid there, in the same
+    way a VLAN group restricts VLAN IDs.
+    """
+
+    name = models.CharField(max_length=CHARFIELD_MAX_LENGTH, db_index=True, unique=True)
+    location = models.ForeignKey(
+        to="dcim.Location",
+        on_delete=models.PROTECT,
+        related_name="vni_groups",
+        blank=True,
+        null=True,
+    )
+    description = models.CharField(max_length=CHARFIELD_MAX_LENGTH, blank=True)
+    range = PositiveRangeNumberTextField(
+        blank=False,
+        default=f"{choices.VPNServiceTypeChoices.VXLAN_VNI_MIN}-{choices.VPNServiceTypeChoices.VXLAN_VNI_MAX}",
+        help_text=(
+            "Permitted VNI range(s) as a comma-separated list, "
+            f"default '{choices.VPNServiceTypeChoices.VXLAN_VNI_MIN}-{choices.VPNServiceTypeChoices.VXLAN_VNI_MAX}' "
+            "if left blank."
+        ),
+        min_boundary=choices.VPNServiceTypeChoices.VXLAN_VNI_MIN,
+        max_boundary=choices.VPNServiceTypeChoices.VXLAN_VNI_MAX,
+        verbose_name="VNI range",
+    )
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "VNI group"
+        verbose_name_plural = "VNI groups"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def expanded_range(self):
+        """Expand this group's range into a list of integers (VNIs).
+
+        Note: the default range spans the full 24-bit VNI space, so prefer `contains_vni()` for
+        membership checks rather than expanding the range.
+        """
+        return parse_numeric_range(self.range)
+
+    def contains_vni(self, vni):
+        """Return whether an integer VNI falls within this group's range, without expanding it."""
+        for segment in self.range.split(","):
+            segment = segment.strip()
+            if not segment:
+                continue
+            if "-" in segment:
+                start, end = segment.split("-", 1)
+                if int(start.strip()) <= vni <= int(end.strip()):
+                    return True
+            elif int(segment) == vni:
+                return True
+        return False
+
+    @property
+    def available_vnis(self):
+        """Return all VNIs within this group's range that are not yet assigned to a member VPN."""
+        used_vnis = set()
+        for vpn_id in self.vpns.exclude(vpn_id="").values_list("vpn_id", flat=True):
+            try:
+                used_vnis.add(int(vpn_id))
+            except (TypeError, ValueError):
+                continue
+        return sorted(vni for vni in self.expanded_range if vni not in used_vnis)
+
+    def get_next_available_vni(self):
+        """Return the first available VNI in the group's range, or None if the range is exhausted."""
+        available_vnis = self.available_vnis
+        return available_vnis[0] if available_vnis else None
+
+    def clean(self):
+        super().clean()
+
+        # Validate that the assigned Location's type permits VNI groups.
+        if self.location is not None:
+            if ContentType.objects.get_for_model(self) not in self.location.location_type.content_types.all():
+                raise ValidationError(
+                    {"location": f'VNI groups may not associate to locations of type "{self.location.location_type}".'}
+                )
+
+        # A range may not be resized so as to orphan an existing member VPN's VNI.
+        out_of_range_vnis = []
+        if self.present_in_database:
+            for vpn_id in self.vpns.exclude(vpn_id="").values_list("vpn_id", flat=True):
+                try:
+                    vni = int(vpn_id)
+                except (TypeError, ValueError):
+                    continue
+                if not self.contains_vni(vni):
+                    out_of_range_vnis.append(vni)
+        if out_of_range_vnis:
+            raise ValidationError(
+                {
+                    "range": (
+                        "VNI group range may not be resized due to existing VPNs "
+                        f"(VNIs: {','.join(map(str, sorted(out_of_range_vnis)))})."
+                    )
+                }
+            )
+
+
+@extras_features(
+    "custom_links",
+    "custom_validators",
+    "export_templates",
+    "graphql",
     "statuses",
     "webhooks",
 )
@@ -276,6 +394,15 @@ class VPN(PrimaryModel):  # pylint: disable=too-many-ancestors
         blank=True,
         null=True,
         verbose_name="VPN Profile",
+    )
+    vni_group = models.ForeignKey(
+        to="vpn.VNIGroup",
+        on_delete=models.PROTECT,
+        related_name="vpns",
+        blank=True,
+        null=True,
+        verbose_name="VNI Group",
+        help_text="Restrict this VPN's VNI to the group's permitted range.",
     )
     role = RoleField(blank=True, null=True)
     tenant = models.ForeignKey(
@@ -306,6 +433,7 @@ class VPN(PrimaryModel):  # pylint: disable=too-many-ancestors
         "description",
         "vpn_id",
         "vpn_profile",
+        "vni_group",
         "role",
         "tenant",
         "service_type",
@@ -318,6 +446,7 @@ class VPN(PrimaryModel):  # pylint: disable=too-many-ancestors
 
         ordering = ("name",)
         verbose_name = "VPN"
+        unique_together = [["vni_group", "vpn_id"]]
 
     def __str__(self):
         """Stringify instance."""
@@ -353,6 +482,21 @@ class VPN(PrimaryModel):  # pylint: disable=too-many-ancestors
                         )
                     }
                 )
+
+        # A VNI group restricts the VPN's identifier to the group's permitted VNI range.
+        if self.vni_group is not None:
+            if not self.vpn_id:
+                raise ValidationError({"vpn_id": "Identifier is required when a VNI group is assigned."})
+
+            try:
+                vni = int(self.vpn_id)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError(
+                    {"vpn_id": "Identifier must be a numeric VNI when a VNI group is assigned."}
+                ) from exc
+
+            if not self.vni_group.contains_vni(vni):
+                raise ValidationError({"vpn_id": f"VNI is not contained in VNI group range ({self.vni_group.range})."})
 
 
 @extras_features(
